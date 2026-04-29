@@ -1,5 +1,5 @@
 name: 'dbt_holidates'
-version: '0.1.0'
+version: '1.0.0'
 config-version: 2
 profile: 'default'
 require-dbt-version: [">=1.5.0", "<3.0.0"]
@@ -23,3 +23,5 @@ vars:
 models:
     dbt_holidates:
         +materialized: view
+        +database: "{{ var('dbt_holidates_destination_database', target.database) }}"
+        +schema: "{{ var('dbt_holidates_destination_schema', 'dbt_holidates') }}"

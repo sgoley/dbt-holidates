@@ -22,7 +22,7 @@ Include `dbt_holidates` in your dbt project's `packages.yml` file:
 ```yaml
 packages:
   - git: "https://github.com/sgoley/dbt-holidates.git"
-    revision: 0.1.0
+        revision: v1.0.0
 ```
 
 Then install the package:
@@ -50,6 +50,14 @@ The package defaults to generating holidays from 2000 through 2035. Override the
 vars:
   dbt_holidates_start_year: 2000
   dbt_holidates_end_year: 2045
+```
+
+To direct package models to a custom destination database/schema, set:
+
+```yaml
+vars:
+    dbt_holidates_destination_database: analytics
+    dbt_holidates_destination_schema: reference
 ```
 
 The same range can be controlled directly when calling the macro:

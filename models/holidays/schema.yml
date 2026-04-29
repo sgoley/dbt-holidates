@@ -1,0 +1,80 @@
+version: 2
+
+models:
+  - name: holidays
+    description: Canonical holiday calendar containing all calendars provided by dbt_holidates.
+    columns:
+      - name: holiday_date
+        description: Actual date of the holiday.
+        tests:
+          - not_null
+      - name: observed_date
+        description: Date on which the holiday is observed by the calendar.
+        tests:
+          - not_null
+      - name: calendar_name
+        description: Stable machine-readable calendar identifier.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['us_government', 'us_bank', 'us_market', 'canada', 'china']
+      - name: calendar_display_name
+        description: Human-readable calendar label.
+        tests:
+          - not_null
+      - name: country_code
+        description: ISO-style country code for the holiday calendar.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['US', 'CA', 'CN']
+      - name: subdivision
+        description: Optional subdivision, exchange, or jurisdiction within the country.
+      - name: holiday_name
+        description: Human-readable holiday name.
+        tests:
+          - not_null
+      - name: holiday_type
+        description: Holiday category, such as federal_holiday, bank_holiday, market_holiday, market_closure, or public_holiday.
+        tests:
+          - not_null
+      - name: is_observed
+        description: True when the row represents a date observed by the calendar.
+        tests:
+          - not_null
+      - name: rule_description
+        description: Rule or historical note used to generate the row.
+        tests:
+          - not_null
+
+  - name: us_government_holidays
+    description: US federal government holidays.
+    columns: &holiday_columns
+      - name: holiday_date
+        tests: [not_null]
+      - name: observed_date
+        tests: [not_null]
+      - name: calendar_name
+        tests: [not_null]
+      - name: holiday_name
+        tests: [not_null]
+      - name: holiday_type
+        tests: [not_null]
+
+  - name: us_bank_holidays
+    description: US bank holidays following the Federal Reserve holiday schedule.
+    columns: *holiday_columns
+
+  - name: us_market_holidays
+    description: US market holidays and major full-day NYSE closures.
+    columns: *holiday_columns
+
+  - name: canada_holidays
+    description: Canadian federal holidays.
+    columns: *holiday_columns
+
+  - name: china_holidays
+    description: China public holidays, including curated lunar holiday dates through 2050.
+    columns: *holiday_columns

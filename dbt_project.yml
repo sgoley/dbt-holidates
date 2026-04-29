@@ -1,29 +1,25 @@
-# ======
-# Project Details
-# ======
-name: 'dbt-holidates'
-version: '0.0.1'
+name: 'dbt_holidates'
+version: '0.1.0'
 config-version: 2
 profile: 'default'
+require-dbt-version: [">=1.5.0", "<3.0.0"]
 
-# ======
-# File Path Configs
-# ======
-source-paths: ["models"]
+model-paths: ["models"]
 analysis-paths: ["analysis"]
 test-paths: ["tests"]
-data-paths: ["data"]
+seed-paths: ["data"]
 macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
 target-path: "target"  
 clean-targets:         
     - "target"
+    - "dbt_packages"
     - "dbt_modules"
 
-# ======
-# Seed Configs
-# ======
-seeds:
-    +enabled: true
-    +quote_columns: False
-    
+vars:
+    dbt_holidates_start_year: 2000
+    dbt_holidates_end_year: 2035
+
+models:
+    dbt_holidates:
+        +materialized: view

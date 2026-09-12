@@ -29,22 +29,21 @@
         where 1 = 0
     {% else %}
         {% for row in rows | sort(attribute="calendar_name,observed_date,holiday_name") %}
-            {% if not loop.first %}union all{% endif %}
+            {% if loop.first %}
             select
                 cast('{{ row["holiday_date"].isoformat() }}' as date) as holiday_date,
                 cast('{{ row["observed_date"].isoformat() }}' as date) as observed_date,
-                '{{ row["calendar_name"] | replace("'", "''") }}' as calendar_name,
-                '{{ row["calendar_display_name"] | replace("'", "''") }}' as calendar_display_name,
-                '{{ row["country_code"] | replace("'", "''") }}' as country_code,
-                {% if row["subdivision"] is none %}
-                    cast(null as {{ dbt.type_string() }}) as subdivision,
-                {% else %}
-                    '{{ row["subdivision"] | replace("'", "''") }}' as subdivision,
-                {% endif %}
-                '{{ row["holiday_name"] | replace("'", "''") }}' as holiday_name,
-                '{{ row["holiday_type"] | replace("'", "''") }}' as holiday_type,
+                '{{ dbt.escape_single_quotes(row["calendar_name"]) }}' as calendar_name,
+                '{{ dbt.escape_single_quotes(row["calendar_display_name"]) }}' as calendar_display_name,
+                '{{ dbt.escape_single_quotes(row["country_code"]) }}' as country_code,
+                {% if row["subdivision"] is none %}cast(null as {{ dbt.type_string() }}){% else %}'{{ dbt.escape_single_quotes(row["subdivision"]) }}'{% endif %} as subdivision,
+                '{{ dbt.escape_single_quotes(row["holiday_name"]) }}' as holiday_name,
+                '{{ dbt.escape_single_quotes(row["holiday_type"]) }}' as holiday_type,
                 {% if row["is_observed"] %}true{% else %}false{% endif %} as is_observed,
-                '{{ row["rule_description"] | replace("'", "''") }}' as rule_description
+                '{{ dbt.escape_single_quotes(row["rule_description"]) }}' as rule_description
+            {% else %}
+            union all select date '{{ row["holiday_date"].isoformat() }}', date '{{ row["observed_date"].isoformat() }}', '{{ dbt.escape_single_quotes(row["calendar_name"]) }}', '{{ dbt.escape_single_quotes(row["calendar_display_name"]) }}', '{{ dbt.escape_single_quotes(row["country_code"]) }}', {% if row["subdivision"] is none %}null{% else %}'{{ dbt.escape_single_quotes(row["subdivision"]) }}'{% endif %}, '{{ dbt.escape_single_quotes(row["holiday_name"]) }}', '{{ dbt.escape_single_quotes(row["holiday_type"]) }}', {% if row["is_observed"] %}true{% else %}false{% endif %}, '{{ dbt.escape_single_quotes(row["rule_description"]) }}'
+            {% endif %}
         {% endfor %}
     {% endif %}
 {% endmacro %}

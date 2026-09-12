@@ -2,16 +2,18 @@
 
 `dbt_holidates` is a dbt package that provides ready-to-use holiday calendar models and a compile-time macro for generating holiday rows across a configurable year range.
 
-## Included calendars
+## Included calendars & event models
 
-| Calendar | Model | Macro key | Notes |
-| --- | --- | --- | --- |
-| US Government Holidays | `us_government_holidays` | `us_government` | US federal holidays, including Juneteenth from 2021. |
-| US Bank Holidays | `us_bank_holidays` | `us_bank` | Federal Reserve-style bank holidays. |
-| US Market Holidays | `us_market_holidays` | `us_market` | NYSE regular holidays plus major historical full-day closures. |
-| Canadian Holidays | `canada_holidays` | `canada` | Canadian federal holidays. |
-| China Holidays | `china_holidays` | `china` | China public holiday festival dates, with curated lunar dates through 2050. |
-| All calendars | `holidays` | `all` | Canonical union of every calendar above. |
+| Calendar / Model         | Model                      | Macro / Function                  | Notes                                                                                                                            |
+| ------------------------ | -------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| US Government Holidays   | `us_government_holidays`   | `get_holidays("us_government")`   | US federal holidays, including Juneteenth from 2021.                                                                             |
+| US Bank Holidays         | `us_bank_holidays`         | `get_holidays("us_bank")`         | Federal Reserve-style bank holidays.                                                                                             |
+| US Market Holidays       | `us_market_holidays`       | `get_holidays("us_market")`       | NYSE regular holidays plus major historical full-day closures (9/11, Sandy, Presidential mourning days).                         |
+| US Early Market Closures | `us_early_market_closures` | `get_early_closures("us_market")` | Scheduled 1:00 PM EST early market closes (Black Friday, Christmas Eve, July 3rd).                                               |
+| US Options Expirations   | `us_options_expirations`   | `get_options_expirations()`       | Equity monthlies (3rd Friday), weeklies, quad witching, EOM/EOQ index options, and CBOE VIX settlement with inversion detection. |
+| Canadian Holidays        | `canada_holidays`          | `get_holidays("canada")`          | Canadian federal holidays.                                                                                                       |
+| China Holidays           | `china_holidays`           | `get_holidays("china")`           | China public holiday festival dates, with curated lunar dates through 2050.                                                      |
+| All holiday calendars    | `holidays`                 | `get_holidays("all")`             | Canonical union of every holiday calendar above.                                                                                 |
 
 ## Installation
 
@@ -56,8 +58,8 @@ To direct package models to a custom destination database/schema, set:
 
 ```yaml
 vars:
-    dbt_holidates_destination_database: analytics
-    dbt_holidates_destination_schema: reference
+  dbt_holidates_destination_database: analytics
+  dbt_holidates_destination_schema: reference
 ```
 
 The same range can be controlled directly when calling the macro:
@@ -178,31 +180,53 @@ select
 from {{ ref('your_date_dim') }} d
 left join {{ ref('holidays') }} h
     on d.date_day = h.observed_date
-where d.date_day >= current_date - interval 90 day
-  and d.date_day <= current_date
 group by d.date_day
-having count(distinct h.calendar_name) > 0
-order by d.date_day desc
 ```
 
+### Working with Options Expirations (`us_options_expirations`)
+
+`dbt_holidates` provides an algorithmic options expiration calendar that models:
+- **`equity_monthly`**: Standard 3rd Friday equity and index options. If the 3rd Friday falls on a market holiday (e.g. Good Friday), expiration rolls backward to the preceding trading day (Thursday).
+- **`equity_weekly`**: Weekly Friday options (all Fridays not already an equity monthly).
+- **`quad_witching`**: Quadruple witching expirations (March, June, September, December 3rd Friday).
+- **`index_eom` & `index_eoq`**: End-of-Month and End-of-Quarter index options (SPXW, NDXP) expiring on the last business day of the month/quarter.
+- **`vix_monthly`**: CBOE VIX settlement date (30 days prior to the 3rd Friday of the following calendar month, adjusted for holidays).
+- **`is_vix_inversion`**: Flags contracts where VIX settles *on or before* that contract month's equity monthly OPEX (e.g., July 2023, October 2022, October 2016).
+
+```sql
+-- Find upcoming VIX inversions and OPEX dates
+select
+    expiration_date,
+    scheduled_date,
+    contract_month,
+    product_type,
+    is_holiday_rolled,
+    roll_reason,
+    is_vix_inversion,
+    days_to_equity_monthly_opex
+from {{ ref('us_options_expirations') }}
+where product_type in ('equity_monthly', 'vix_monthly')
+  and contract_month between '2024-01' and '2025-12'
+order by contract_month, expiration_date;
+```
 
 
 ## Output columns
 
 Every model returns the same shape:
 
-| Column | Description |
-| --- | --- |
-| `holiday_date` | Actual date of the holiday. |
-| `observed_date` | Date on which the calendar observes the holiday. |
-| `calendar_name` | Stable machine-readable calendar identifier. |
-| `calendar_display_name` | Human-readable calendar label. |
-| `country_code` | Country code for the calendar. |
-| `subdivision` | Optional subdivision, exchange, or jurisdiction. |
-| `holiday_name` | Human-readable holiday name. |
-| `holiday_type` | Holiday category, such as `federal_holiday`, `bank_holiday`, `market_holiday`, `market_closure`, or `public_holiday`. |
-| `is_observed` | Boolean flag indicating the row is observed by the calendar. |
-| `rule_description` | Rule or historical note used to generate the holiday row. |
+| Column                  | Description                                                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `holiday_date`          | Actual date of the holiday.                                                                                           |
+| `observed_date`         | Date on which the calendar observes the holiday.                                                                      |
+| `calendar_name`         | Stable machine-readable calendar identifier.                                                                          |
+| `calendar_display_name` | Human-readable calendar label.                                                                                        |
+| `country_code`          | Country code for the calendar.                                                                                        |
+| `subdivision`           | Optional subdivision, exchange, or jurisdiction.                                                                      |
+| `holiday_name`          | Human-readable holiday name.                                                                                          |
+| `holiday_type`          | Holiday category, such as `federal_holiday`, `bank_holiday`, `market_holiday`, `market_closure`, or `public_holiday`. |
+| `is_observed`           | Boolean flag indicating the row is observed by the calendar.                                                          |
+| `rule_description`      | Rule or historical note used to generate the holiday row.                                                             |
 
 ## Important calendar notes
 
@@ -223,11 +247,11 @@ For calendars that require organization-specific closure rules, call `dbt_holida
 {{ dbt_holidates.get_holidays(calendar_name, start_year, end_year) }}
 ```
 
-| Parameter | Required | Default | Description |
-| --- | --- | --- | --- |
-| `calendar_name` | Yes | - | One of: `all`, `us_government`, `us_bank`, `us_market`, `canada`, `china` |
-| `start_year` | No | `var('dbt_holidates_start_year', 2000)` | First year to generate holidays for |
-| `end_year` | No | `var('dbt_holidates_end_year', 2035)` | Last year to generate holidays for |
+| Parameter       | Required | Default                                 | Description                                                               |
+| --------------- | -------- | --------------------------------------- | ------------------------------------------------------------------------- |
+| `calendar_name` | Yes      | -                                       | One of: `all`, `us_government`, `us_bank`, `us_market`, `canada`, `china` |
+| `start_year`    | No       | `var('dbt_holidates_start_year', 2000)` | First year to generate holidays for                                       |
+| `end_year`      | No       | `var('dbt_holidates_end_year', 2035)`   | Last year to generate holidays for                                        |
 
 ### Available models
 
@@ -256,28 +280,26 @@ Most SQL dialects support the patterns shown. For dialect-specific date function
 ### Best practices
 
 1. **Always join on `observed_date`**, not `holiday_date`. The `observed_date` is the actual day the calendar observes the holiday (e.g., Monday if the holiday falls on a weekend).
-
 2. **Filter by `calendar_name`** when you only need one calendar to avoid duplicate rows:
    ```sql
    left join {{ ref('holidays') }} h
        on d.date_day = h.observed_date
        and h.calendar_name = 'us_government'
    ```
-
 3. **Materialize locally** if you reference the holidays frequently. Consider changing the materialization in your `dbt_project.yml`:
    ```yaml
    models:
-       dbt_holidates:
-           holidays:
-               +materialized: table  # Instead of view
+     dbt_holidates:
+       holidays:
+         +materialized: table # Instead of view
    ```
-
 4. **Extend with custom holidays** by wrapping the macro and adding your organization's closure dates:
+
    ```sql
    with dbt_holidates_gen as (
        {{ dbt_holidates.get_holidays("us_government") }}
    ),
-   
+
    custom_closures as (
        select
            cast('2024-11-29' as date) as holiday_date,
@@ -291,7 +313,7 @@ Most SQL dialects support the patterns shown. For dialect-specific date function
            true as is_observed,
            'Organization-specific closure' as rule_description
    )
-   
+
    select * from dbt_holidates_gen
    union all
    select * from custom_closures

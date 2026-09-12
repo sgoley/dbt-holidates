@@ -1,0 +1,81 @@
+version: 2
+
+models:
+  - name: us_options_expirations
+    description: Comprehensive US options and derivatives expiration calendar, including equity monthlies (3rd Friday), weeklies, quarterly quad witching, end-of-month index options, and CBOE VIX settlement dates with inversion detection.
+    columns:
+      - name: expiration_date
+        description: The actual trading day on which the option contract expires or settles (adjusted for market holidays).
+        tests:
+          - not_null
+      - name: scheduled_date
+        description: The nominal scheduled calendar date before any holiday adjustments.
+        tests:
+          - not_null
+      - name: contract_month
+        description: The contract maturity month in YYYY-MM format.
+        tests:
+          - not_null
+      - name: product_type
+        description: Classification of the option product (equity_monthly, equity_weekly, vix_monthly, index_eom, index_eoq).
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['equity_monthly', 'equity_weekly', 'vix_monthly', 'index_eom', 'index_eoq']
+      - name: cycle_type
+        description: Expiration frequency cycle (monthly, weekly, quarterly).
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['monthly', 'weekly', 'quarterly']
+      - name: is_holiday_rolled
+        description: Boolean indicating if the expiration was rolled backward from the scheduled date due to a market holiday or closure.
+        tests:
+          - not_null
+      - name: roll_reason
+        description: Explanation and name of the holiday/closure that triggered the date adjustment.
+      - name: is_quad_witching
+        description: Boolean indicating triple or quadruple witching expiration (March, June, September, December equity monthly OPEX).
+        tests:
+          - not_null
+      - name: is_vix_inversion
+        description: Boolean indicating when a VIX monthly contract expires on or before the corresponding contract month's equity monthly OPEX.
+        tests:
+          - not_null
+      - name: days_to_equity_monthly_opex
+        description: Calendar day difference between this expiration date and that month's equity monthly OPEX date (negative for inverted VIX expirations).
+
+  - name: us_early_market_closures
+    description: Scheduled early market closures (1:00 PM EST) for US equity and options exchanges, including the day after Thanksgiving, Christmas Eve, and July 3rd.
+    columns:
+      - name: closure_date
+        description: Date of the early market closure.
+        tests:
+          - not_null
+          - unique
+      - name: calendar_name
+        description: Exchange or market calendar identifier.
+        tests:
+          - not_null
+      - name: country_code
+        description: ISO country code (US).
+        tests:
+          - not_null
+      - name: close_time
+        description: Scheduled early market close time (13:00 EST).
+        tests:
+          - not_null
+      - name: event_name
+        description: Name of the early close occasion.
+        tests:
+          - not_null
+      - name: closure_type
+        description: Type of closure (early_close).
+        tests:
+          - not_null
+      - name: description
+        description: Description of the early market session.
+        tests:
+          - not_null

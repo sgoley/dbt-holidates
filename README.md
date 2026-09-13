@@ -24,7 +24,7 @@ Include `dbt_holidates` in your dbt project's `packages.yml` file:
 ```yaml
 packages:
   - git: "https://github.com/sgoley/dbt-holidates.git"
-        revision: v1.0.0
+    revision: v1.1.0
 ```
 
 Then install the package:
